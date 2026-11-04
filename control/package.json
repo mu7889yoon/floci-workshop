@@ -1,0 +1,10 @@
+{
+  "name": "floci-workshop-control-plane",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "3.1161.0",
+    "@aws-sdk/client-lambda-microvms": "3.1161.0",
+    "@aws-sdk/lib-dynamodb": "3.1161.0"
+  }
+}

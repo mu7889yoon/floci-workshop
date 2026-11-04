@@ -1,0 +1,6 @@
+aws_region          = "ap-northeast-1"
+name                = "floci-workshop"
+max_sessions        = 30
+session_ttl_seconds = 3600
+
+# scripts/deploy.sh writes deploy_workshop and microvm_image_arn.

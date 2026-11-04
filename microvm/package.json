@@ -1,0 +1,24 @@
+{
+  "name": "floci-workshop-microvm",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:idempotency": "vitest run tests/idempotency.spec.ts --reporter=verbose --maxWorkers=1 --no-file-parallelism",
+    "test:basic": "npm run test:idempotency",
+    "test:advanced": "vitest run tests/advanced.spec.ts --reporter=verbose --maxWorkers=1 --no-file-parallelism"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "node-pty@1.1.0": true
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "3.1161.0",
+    "@aws-sdk/client-s3": "3.1161.0",
+    "@aws-sdk/client-sns": "3.1161.0",
+    "@aws-sdk/client-sqs": "3.1161.0",
+    "@aws-sdk/util-dynamodb": "3.996.9",
+    "node-pty": "1.1.0",
+    "vitest": "3.2.4",
+    "ws": "8.22.1"
+  }
+}

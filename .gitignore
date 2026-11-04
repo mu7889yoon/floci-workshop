@@ -1,0 +1,12 @@
+**/node_modules/
+.playwright-cli/
+/tmp/
+/artifacts/
+slides/dist/
+infra/.terraform/
+infra/build/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/*.tfplan
+infra/workshop.auto.tfvars.json
+*.zip
