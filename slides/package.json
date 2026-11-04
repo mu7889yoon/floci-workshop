@@ -1,0 +1,17 @@
+{
+  "name": "floci-workshop-slidev",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "slidev --port 3030",
+    "build": "slidev build --out dist"
+  },
+  "dependencies": {
+    "@slidev/cli": "53.0.0",
+    "@slidev/theme-default": "0.25.0",
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/xterm": "6.0.0",
+    "vitest": "3.2.4",
+    "vue": "3.5.13"
+  }
+}
