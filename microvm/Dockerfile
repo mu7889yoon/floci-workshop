@@ -1,12 +1,15 @@
 ARG FLOCI_VERSION=2.4.0
 ARG AWS_EMULATOR_VERSION=1.0.338
+ARG NPM_VERSION=12.2.2
 
 FROM floci/floci:${FLOCI_VERSION} AS floci
 
 FROM node:24.22.2-bookworm-slim AS app
+ARG NPM_VERSION
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN apt-get update \
+RUN npm install --global "npm@${NPM_VERSION}" --no-audit --no-fund \
+  && apt-get update \
   && apt-get install -y --no-install-recommends python3 make g++ \
   && rm -rf /var/lib/apt/lists/* \
   && npm ci --omit=dev --no-audit --no-fund
@@ -14,7 +17,9 @@ RUN apt-get update \
 FROM node:24.22.2-bookworm-slim AS runtime
 WORKDIR /app
 ARG AWS_EMULATOR_VERSION
-RUN apt-get update \
+ARG NPM_VERSION
+RUN npm install --global "npm@${NPM_VERSION}" --no-audit --no-fund \
+  && apt-get update \
   && apt-get install -y --no-install-recommends bash ca-certificates curl gnupg libatomic1 \
   && curl -fsSLo /tmp/aws-emulator.deb "https://downloads.aws.com/aws-emulator/packages/aws-emulator/LTS/aws-emulator_${AWS_EMULATOR_VERSION}-1_arm64.deb" \
   && curl -fsSLo /tmp/aws-emulator.deb.sig "https://downloads.aws.com/aws-emulator/packages/aws-emulator/LTS/aws-emulator_${AWS_EMULATOR_VERSION}-1_arm64.deb.sig" \
