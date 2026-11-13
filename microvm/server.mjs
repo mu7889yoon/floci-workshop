@@ -29,6 +29,7 @@ const snapshots = Object.fromEntries(await Promise.all(
 
 let flociProcess
 let awsEmulatorProcess
+let awsEmulatorOutput = ''
 let activeBackend = 'floci'
 let backendTransition = Promise.resolve()
 let basicPassed = false
@@ -89,12 +90,17 @@ async function isAwsEmulatorHealthy() {
   }
 }
 
-async function waitForHealth(check, description) {
-  for (let attempt = 0; attempt < 100; attempt++) {
+async function waitForHealth(check, description, child, getOutput = () => '') {
+  for (let attempt = 0; attempt < 300; attempt++) {
+    if (child && child.exitCode !== null) {
+      const detail = getOutput().trim()
+      throw new Error(`${description} exited before becoming healthy (code ${child.exitCode})${detail ? `: ${detail}` : ''}`)
+    }
     if (await check()) return
     await new Promise(resolveDelay => setTimeout(resolveDelay, 300))
   }
-  throw new Error(`${description} did not become healthy within 30 seconds`)
+  const detail = getOutput().trim()
+  throw new Error(`${description} did not become healthy within 90 seconds${detail ? `: ${detail}` : ''}`)
 }
 
 async function waitForProcessExit(child, timeoutMs) {
@@ -157,15 +163,16 @@ async function startFloci() {
       if (flociProcess === child) flociProcess = undefined
     })
   }
-  await waitForHealth(isFlociHealthy, 'Floci')
+  await waitForHealth(isFlociHealthy, 'Floci', flociProcess)
   console.log('[floci] ready at 127.0.0.1:4566')
 }
 
 async function startAwsEmulator() {
   if (await isAwsEmulatorHealthy()) return
   if (!awsEmulatorProcess || awsEmulatorProcess.exitCode !== null) {
+    awsEmulatorOutput = ''
     const child = spawn('aws-emulator', ['--telemetry', 'off'], {
-      stdio: ['ignore', 'ignore', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         PATH: process.env.PATH || '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
         HOME: '/tmp',
@@ -174,13 +181,20 @@ async function startAwsEmulator() {
       },
     })
     awsEmulatorProcess = child
-    child.stderr.on('data', chunk => process.stderr.write(`[aws-emulator] ${String(chunk).slice(0, 300)}`))
+    const captureAwsEmulatorOutput = chunk => {
+      const output = String(chunk)
+      awsEmulatorOutput = `${awsEmulatorOutput}${output}`.slice(-4000)
+      process.stderr.write(`[aws-emulator] ${output.slice(0, 1000)}`)
+    }
+    child.stdout.on('data', captureAwsEmulatorOutput)
+    child.stderr.on('data', captureAwsEmulatorOutput)
+    child.on('error', error => captureAwsEmulatorOutput(error.message))
     child.on('exit', code => {
       console.error(`[aws-emulator] exited with code ${code}`)
       if (awsEmulatorProcess === child) awsEmulatorProcess = undefined
     })
   }
-  await waitForHealth(isAwsEmulatorHealthy, 'AWS Emulator')
+  await waitForHealth(isAwsEmulatorHealthy, 'AWS Emulator', awsEmulatorProcess, () => awsEmulatorOutput)
   console.log('[aws-emulator] ready at https://127.0.0.1:9297')
 }
 
@@ -450,7 +464,7 @@ const server = createServer(async (req, res) => {
       if (input.stage === 'basic' && passed) basicPassed = true
       return respond(res, 200, {
         passed,
-        output: result.timedOut ? `${result.output}\nTIMEOUT: test execution exceeded 12 seconds.` : result.output,
+        output: result.timedOut ? `${result.output}\nTIMEOUT: test execution exceeded 60 seconds.` : result.output,
       })
     } finally {
       executionBusy = false

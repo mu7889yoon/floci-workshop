@@ -135,6 +135,17 @@ exercise: advanced
 
 ---
 layout: workshop
+exercise: advanced
+---
+
+# 1件失敗しても、成功分は進められる？
+
+正常CSVと不正CSVを同じSQSバッチで処理し、成功分は保存・通知され、失敗分だけが再試行されるかを確認します。
+
+`npm run test:advanced` を続けて実行し、最初の上書き検知と部分失敗時の挙動を見比べてください。
+
+---
+layout: workshop
 ---
 
 # テストが教えるのは、二重実行を前提にすること

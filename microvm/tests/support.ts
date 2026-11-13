@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import {
   CreateTableCommand,
+  DescribeTableCommand,
   DeleteTableCommand,
   DynamoDBClient,
   GetItemCommand,
@@ -38,6 +39,19 @@ const db = new DynamoDBClient(config)
 const s3 = new S3Client({ ...config, forcePathStyle: true })
 const sns = new SNSClient(config)
 const sqs = new SQSClient(config)
+
+async function waitForTableActive(tableName: string) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    try {
+      const result = await db.send(new DescribeTableCommand({ TableName: tableName }))
+      if (result.Table?.TableStatus === 'ACTIVE') return
+    } catch (error) {
+      if ((error as { name?: string }).name !== 'ResourceNotFoundException') throw error
+    }
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  throw new Error(`DynamoDB table did not become ACTIVE: ${tableName}`)
+}
 
 function isExpectedObjectCreatedEvent(body: string | undefined, expectedKey: string) {
   if (!body) return false
@@ -79,6 +93,7 @@ export async function createHarness() {
     AttributeDefinitions: [{ AttributeName: 'invoiceId', AttributeType: 'S' }],
     KeySchema: [{ AttributeName: 'invoiceId', KeyType: 'HASH' }],
   }))
+  await waitForTableActive(tableName)
   const dlq = await sqs.send(new CreateQueueCommand({ QueueName: dlqName }))
   const queue = await sqs.send(new CreateQueueCommand({ QueueName: queueName }))
   const summaryQueue = await sqs.send(new CreateQueueCommand({ QueueName: summaryQueueName }))

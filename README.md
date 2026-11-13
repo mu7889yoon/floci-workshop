@@ -18,7 +18,7 @@ Browser: Slidev + persistent Monaco editor + xterm.js
                                                                       └── SQS DLQ for repeated failures
 ```
 
-The target system imports supplier invoice CSVs in batches. S3 object-created notifications enqueue import jobs; the worker polls up to 10 jobs, validates rows, writes valid invoices to DynamoDB in batches of at most 25, and publishes a per-file summary through SNS. Invalid rows appear in the summary. Transient failures leave messages for SQS retry and eventual DLQ investigation. The advanced exercise discovers an unresolved duplicate-invoice overwrite bug.
+The target system imports supplier invoice CSVs in batches. S3 object-created notifications enqueue import jobs; the worker polls up to 10 jobs, validates rows, writes valid invoices to DynamoDB in batches of at most 25, and publishes a per-file summary through SNS. Invalid rows appear in the summary. Transient failures leave messages for SQS retry and eventual DLQ investigation. The exercises expose duplicate-summary delivery and an unresolved duplicate-invoice overwrite bug, then check that a failed message does not block successful messages in the same batch.
 
 The workbench remains hidden during the introduction and appears when participants are asked to write the test. From then on it uses the bottom 70% of the slide: Monaco on the left and a normal interactive Bash session on the right. xterm.js displays a real Bash process attached to a PTY with readline, terminal resizing, signals, and job control; commands run in the participant's MicroVM rather than through a command simulator. One Bash process and its working directory stay alive while the participant moves between slides.
 
@@ -26,7 +26,7 @@ The Slidev deck follows the supplied `mu7889yoon` Marp theme: light grid, circul
 
 The editor syncs both exercise files to the attendee VM as they change. Shell-side edits are watched and reflected back into Monaco. The control API mints a five-minute Lambda MicroVM auth token scoped only to terminal port 8081; the browser uses it for the WebSocket connection. It receives no AWS credentials or MicroVM ID. Each VM has no internet egress connector or AWS execution role. A scheduled cleanup function terminates expired VMs.
 
-The duplicate-delivery exercise puts the same S3 event body into the SQS queue twice, then checks the number of SNS summaries. Participants replace a TODO with `expect(summaries).toHaveLength(1)`; the current worker sends two summaries, so the test exposes the duplicate side effect. This controlled fixture makes the behavior repeatable; it does not claim to reproduce every timing detail of AWS SQS redelivery.
+The duplicate-delivery exercise puts the same S3 event body into the SQS queue twice, then checks the number of SNS summaries. Participants replace a TODO with `expect(summaries).toHaveLength(1)`; the current worker sends two summaries, so the test exposes the duplicate side effect. The advanced exercises expose a duplicate-invoice overwrite and check partial batch failure and retry behavior. These controlled fixtures make the behavior repeatable; they do not claim to reproduce every timing detail of AWS SQS redelivery.
 
 The attendee MicroVM includes a pinned ARM64 build of the official AWS Emulator alongside Floci. `microvm/config/aws-endpoint.json` selects the local endpoint: `http://127.0.0.1:4566` for Floci or `https://127.0.0.1:9297` for AWS Emulator. The next health check or test run stops the current backend and starts the selected one, so they never compete for the 512-MiB VM. The test launcher configures AWS Emulator's generated credentials and TLS certificate, clears AWS profile credentials, and disables its telemetry for the workshop image. Switching back stops AWS Emulator and clears its in-memory resources.
 
@@ -73,7 +73,7 @@ Terraform outputs the HTTPS CloudFront URL. Verify its health endpoint:
 curl -i "$(cd infra && terraform output -raw workshop_url)/api/health"
 ```
 
-Then open the URL and click **参加して環境を起動** on the session slide. On the following exercise slide, the Bash pane connects to the participant's MicroVM. Try `pwd`, then `npm run test:idempotency` or `npm run test:advanced`. The MicroVM image's `/validate` hook runs fixed Floci integration smoke tests before AWS accepts the image.
+Run the Floci and AWS Emulator integration tests on the Mac before building the image. Image creation checks that the MicroVM starts, but it does not repeat the full test suite inside Lambda MicroVMs. Then open the URL and click **参加して環境を起動** on the session slide. On the following exercise slide, the Bash pane connects to the participant's MicroVM. Try `pwd`, then `npm run test:idempotency` or `npm run test:advanced` to run the workshop exercises.
 
 ## Teardown
 

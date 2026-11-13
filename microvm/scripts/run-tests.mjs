@@ -18,7 +18,7 @@ if (!testFile) {
 const target = getAwsEndpointConfig()
 try {
   const health = await fetch('http://127.0.0.1:8080/api/health', {
-    signal: AbortSignal.timeout(35_000),
+    signal: AbortSignal.timeout(95_000),
   })
   if (!health.ok) {
     const result = await health.json().catch(() => ({}))

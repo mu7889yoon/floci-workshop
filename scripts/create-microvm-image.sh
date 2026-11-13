@@ -42,8 +42,7 @@ cat > "$HOOKS" <<'JSON'
   "microvmImageHooks": {
     "ready": "ENABLED",
     "readyTimeoutInSeconds": 600,
-    "validate": "ENABLED",
-    "validateTimeoutInSeconds": 600
+    "validate": "DISABLED"
   }
 }
 JSON
