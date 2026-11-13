@@ -31,15 +31,11 @@ import {
   SQSClient,
 } from '@aws-sdk/client-sqs'
 import { unmarshall } from '@aws-sdk/util-dynamodb'
+import { getAwsClientConfig } from '../lib/aws-runtime.mjs'
 
-const endpoint = process.env.FLOCI_URL || 'http://127.0.0.1:4566'
-const config = {
-  endpoint,
-  region: 'ap-northeast-1',
-  credentials: { accessKeyId: 'local-test', secretAccessKey: 'local-test-only' },
-}
+const config = getAwsClientConfig()
 const db = new DynamoDBClient(config)
-const s3 = new S3Client(config)
+const s3 = new S3Client({ ...config, forcePathStyle: true })
 const sns = new SNSClient(config)
 const sqs = new SQSClient(config)
 

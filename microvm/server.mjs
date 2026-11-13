@@ -4,7 +4,9 @@ import { watch } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, resolve } from 'node:path'
 import { spawn as spawnPty } from 'node-pty'
+import https from 'node:https'
 import { WebSocket, WebSocketServer } from 'ws'
+import { AWS_EMULATOR_HOME, getAwsEndpointConfig, getTestEnvironment } from './lib/aws-runtime.mjs'
 
 const ROOT = import.meta.dirname
 const HOST = '0.0.0.0'
@@ -26,7 +28,9 @@ const snapshots = Object.fromEntries(await Promise.all(
 ))
 
 let flociProcess
-let flociReady = false
+let awsEmulatorProcess
+let activeBackend = 'floci'
+let backendTransition = Promise.resolve()
 let basicPassed = false
 let executionBusy = false
 let shellPty
@@ -61,41 +65,140 @@ async function isFlociHealthy() {
   }
 }
 
-async function startFloci() {
-  if (await isFlociHealthy()) {
-    flociReady = true
-    return
+async function isAwsEmulatorHealthy() {
+  try {
+    const ca = await readFile(`${AWS_EMULATOR_HOME}/ca.pem`)
+    return await new Promise(resolveHealth => {
+      const request = https.get({
+        hostname: '127.0.0.1',
+        port: 9297,
+        path: '/__admin/health',
+        ca,
+        timeout: 500,
+      }, response => {
+        let body = ''
+        response.setEncoding('utf8')
+        response.on('data', chunk => { body += chunk })
+        response.on('end', () => resolveHealth(response.statusCode === 200 && body === 'ok'))
+      })
+      request.on('error', () => resolveHealth(false))
+      request.on('timeout', () => request.destroy(new Error('AWS Emulator health check timed out')))
+    })
+  } catch {
+    return false
   }
-  if (flociProcess) return
+}
 
-  flociProcess = spawn(process.env.FLOCI_BIN || '/app/application', [
-    '-Dquarkus.http.host=127.0.0.1',
-    '-Dfloci.security.allow-unsafe-network-exposure=false',
-  ], {
-    stdio: ['ignore', 'ignore', 'pipe'],
-    env: {
-      ...process.env,
-      FLOCI_STORAGE_MODE: 'memory',
-      QUARKUS_HTTP_HOST: '127.0.0.1',
-      QUARKUS_HTTP_PORT: '4566',
-    },
-  })
-  flociProcess.stderr.on('data', chunk => process.stderr.write(`[floci] ${String(chunk).slice(0, 300)}`))
-  flociProcess.on('exit', code => {
-    console.error(`[floci] exited with code ${code}`)
-    flociProcess = undefined
-    flociReady = false
-  })
-
+async function waitForHealth(check, description) {
   for (let attempt = 0; attempt < 100; attempt++) {
-    if (await isFlociHealthy()) {
-      flociReady = true
-      console.log('[floci] ready at 127.0.0.1:4566')
-      return
-    }
+    if (await check()) return
     await new Promise(resolveDelay => setTimeout(resolveDelay, 300))
   }
-  throw new Error('Floci did not become healthy within 30 seconds')
+  throw new Error(`${description} did not become healthy within 30 seconds`)
+}
+
+async function waitForProcessExit(child, timeoutMs) {
+  if (child.exitCode !== null) return true
+  return new Promise(resolveExit => {
+    const onExit = () => {
+      clearTimeout(timer)
+      resolveExit(true)
+    }
+    const timer = setTimeout(() => {
+      child.off('exit', onExit)
+      resolveExit(false)
+    }, timeoutMs)
+    child.once('exit', onExit)
+  })
+}
+
+async function stopProcess(child, description) {
+  if (!child || child.exitCode !== null) return
+  console.log(`[${description}] stopping`)
+  child.kill('SIGTERM')
+  if (await waitForProcessExit(child, 3000)) return
+  child.kill('SIGKILL')
+  if (!await waitForProcessExit(child, 1000)) {
+    throw new Error(`Could not stop ${description}; refusing to start another backend`)
+  }
+}
+
+async function stopFloci() {
+  const child = flociProcess
+  await stopProcess(child, 'floci')
+  if (flociProcess === child) flociProcess = undefined
+}
+
+async function stopAwsEmulator() {
+  const child = awsEmulatorProcess
+  await stopProcess(child, 'aws-emulator')
+  if (awsEmulatorProcess === child) awsEmulatorProcess = undefined
+}
+
+async function startFloci() {
+  if (await isFlociHealthy()) return
+  if (!flociProcess || flociProcess.exitCode !== null) {
+    const child = spawn(process.env.FLOCI_BIN || '/app/application', [
+      '-Dquarkus.http.host=127.0.0.1',
+      '-Dfloci.security.allow-unsafe-network-exposure=false',
+    ], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+      env: {
+        ...process.env,
+        FLOCI_STORAGE_MODE: 'memory',
+        QUARKUS_HTTP_HOST: '127.0.0.1',
+        QUARKUS_HTTP_PORT: '4566',
+      },
+    })
+    flociProcess = child
+    child.stderr.on('data', chunk => process.stderr.write(`[floci] ${String(chunk).slice(0, 300)}`))
+    child.on('exit', code => {
+      console.error(`[floci] exited with code ${code}`)
+      if (flociProcess === child) flociProcess = undefined
+    })
+  }
+  await waitForHealth(isFlociHealthy, 'Floci')
+  console.log('[floci] ready at 127.0.0.1:4566')
+}
+
+async function startAwsEmulator() {
+  if (await isAwsEmulatorHealthy()) return
+  if (!awsEmulatorProcess || awsEmulatorProcess.exitCode !== null) {
+    const child = spawn('aws-emulator', ['--telemetry', 'off'], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+      env: {
+        PATH: process.env.PATH || '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+        HOME: '/tmp',
+        TMPDIR: '/tmp',
+        EMULATOR_TELEMETRY: 'off',
+      },
+    })
+    awsEmulatorProcess = child
+    child.stderr.on('data', chunk => process.stderr.write(`[aws-emulator] ${String(chunk).slice(0, 300)}`))
+    child.on('exit', code => {
+      console.error(`[aws-emulator] exited with code ${code}`)
+      if (awsEmulatorProcess === child) awsEmulatorProcess = undefined
+    })
+  }
+  await waitForHealth(isAwsEmulatorHealthy, 'AWS Emulator')
+  console.log('[aws-emulator] ready at https://127.0.0.1:9297')
+}
+
+async function ensureBackend() {
+  const transition = backendTransition.then(async () => {
+    const target = getAwsEndpointConfig()
+    if (target.provider !== activeBackend) {
+      if (target.provider === 'aws-emulator') await stopFloci()
+      else await stopAwsEmulator()
+      activeBackend = target.provider
+      console.log(`[microvm] switching backend to ${target.provider}`)
+    }
+    if (target.provider === 'aws-emulator') await startAwsEmulator()
+    else await startFloci()
+    return target
+  })
+  backendTransition = transition.catch(() => {})
+  return transition
 }
 
 async function readJSON(req) {
@@ -126,13 +229,7 @@ function runVitest(stage) {
     '--reporter=verbose', '--maxWorkers=1', '--no-file-parallelism',
   ], {
     cwd: ROOT,
-    env: {
-      PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
-      HOME: '/tmp', TMPDIR: '/tmp', NODE_ENV: 'test', CI: 'true',
-      FLOCI_URL: 'http://127.0.0.1:4566',
-      AWS_ACCESS_KEY_ID: 'local-test', AWS_SECRET_ACCESS_KEY: 'local-test-only',
-      AWS_REGION: 'ap-northeast-1', AWS_EC2_METADATA_DISABLED: 'true', NO_COLOR: '1',
-    },
+    env: getTestEnvironment(process.env),
     ...(process.getuid?.() === 0 ? { uid: 1001, gid: 0 } : {}),
     detached: true,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -275,19 +372,25 @@ const server = createServer(async (req, res) => {
   const path = new URL(req.url || '/', 'http://localhost').pathname
 
   if (req.method === 'GET' && path === '/api/health') {
-    flociReady = await isFlociHealthy()
-    return respond(res, flociReady ? 200 : 503, { ok: flociReady, floci: flociReady ? 'ready' : 'starting' })
+    try {
+      const target = await ensureBackend()
+      return respond(res, 200, { ok: true, provider: target.provider, endpoint: target.endpoint })
+    } catch (error) {
+      return respond(res, 503, { ok: false, provider: activeBackend, error: error.message })
+    }
   }
 
   const hook = path.match(/^\/aws\/lambda-microvms\/runtime\/v1\/(ready|validate|run|resume)$/)?.[1]
   if (req.method === 'POST' && hook) {
-    flociReady = await isFlociHealthy()
-    if (!flociReady) return respond(res, 503, { ok: false, hook })
+    let target
+    try { target = await ensureBackend() } catch (error) {
+      return respond(res, 503, { ok: false, hook, error: error.message })
+    }
     if (hook === 'validate') {
       if (executionBusy) return respond(res, 503, { ok: false, hook, error: 'Validation is busy' })
       executionBusy = true
       try {
-        console.log('[validate] running Floci S3/SQS/DynamoDB/SNS smoke tests')
+        console.log(`[validate] running S3/SQS/DynamoDB/SNS smoke tests against ${target.provider}`)
         const smoke = await runVitest('smoke')
         const ok = smoke.exitCode === 0 && !smoke.timedOut
         console.log(`[validate] exit=${smoke.exitCode} timeout=${smoke.timedOut}\n${smoke.output}`)
@@ -329,8 +432,9 @@ const server = createServer(async (req, res) => {
     try { input = await readJSON(req) } catch (error) {
       return respond(res, error.statusCode || 400, { error: error.message })
     }
-    flociReady = await isFlociHealthy()
-    if (!flociReady) return respond(res, 503, { error: 'Floci is not ready' })
+    try { await ensureBackend() } catch (error) {
+      return respond(res, 503, { error: error.message })
+    }
     if (!['basic', 'advanced'].includes(input.stage) || typeof input.code !== 'string') {
       return respond(res, 400, { error: 'Exercise stage and code are required' })
     }
@@ -358,9 +462,8 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => console.log(`[microvm] listening on ${HOST}:${PORT}`))
 terminalHttpServer.listen(TERMINAL_PORT, HOST, () => console.log(`[terminal] interactive Bash listening on ${HOST}:${TERMINAL_PORT}`))
-void startFloci().catch(error => {
-  console.error('[microvm] Floci startup failed:', error)
-  flociReady = false
+void ensureBackend().catch(error => {
+  console.error('[microvm] backend startup failed:', error)
 })
 
 for (const signal of ['SIGTERM', 'SIGINT']) {
@@ -368,7 +471,8 @@ for (const signal of ['SIGTERM', 'SIGINT']) {
     server.close()
     terminalHttpServer.close()
     shellPty?.kill()
-    if (flociProcess && !flociProcess.killed) flociProcess.kill('SIGTERM')
+    if (flociProcess && flociProcess.exitCode === null) flociProcess.kill('SIGTERM')
+    if (awsEmulatorProcess && awsEmulatorProcess.exitCode === null) awsEmulatorProcess.kill('SIGTERM')
     process.exitCode = 0
   })
 }

@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:idempotency": "vitest run tests/idempotency.spec.ts --reporter=verbose --maxWorkers=1 --no-file-parallelism",
+    "test:idempotency": "node scripts/run-tests.mjs idempotency",
     "test:basic": "npm run test:idempotency",
-    "test:advanced": "vitest run tests/advanced.spec.ts --reporter=verbose --maxWorkers=1 --no-file-parallelism"
+    "test:advanced": "node scripts/run-tests.mjs advanced"
   },
   "allowScripts": {
     "esbuild@0.28.2": true,

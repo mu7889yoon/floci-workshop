@@ -23,7 +23,8 @@ cp "$ROOT/microvm/Dockerfile" \
   "$ROOT/microvm/server.mjs" \
   "$ROOT/microvm/vitest.config.ts" \
   "$TMP/payload/"
-cp -R "$ROOT/microvm/lib" "$ROOT/microvm/src" "$ROOT/microvm/tests" "$TMP/payload/"
+cp -R "$ROOT/microvm/config" "$ROOT/microvm/lib" "$ROOT/microvm/scripts" \
+  "$ROOT/microvm/src" "$ROOT/microvm/tests" "$TMP/payload/"
 (cd "$TMP/payload" && zip -qr "$TMP/microvm.zip" .)
 KEY="microvm/${IMAGE_NAME}.zip"
 aws --profile "$PROFILE" --region "$REGION" s3 cp "$TMP/microvm.zip" "s3://${ARTIFACT_BUCKET}/${KEY}" --sse AES256
