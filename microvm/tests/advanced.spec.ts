@@ -5,7 +5,7 @@ import { withHarness } from './support'
 
 const invoiceCsv = (amount: number) => `invoiceId,customerId,amountCents,dueDate\nINV-SAME,Acme,${amount},2026-12-31`
 
-it('does not overwrite an invoice when a later import repeats its ID', async () => withHarness(async h => {
+it('同じ請求書IDを再取り込みしても、保存済みの請求書を上書きしない', async () => withHarness(async h => {
     await h.putCsv('daily/first.csv', invoiceCsv(1200))
     await h.putCsv('daily/retry.csv', invoiceCsv(9999))
     await handleImportBatch()
@@ -15,7 +15,7 @@ it('does not overwrite an invoice when a later import repeats its ID', async () 
     throw new Error('TODO: complete the missing assertion')
   }))
 
-it('keeps a successful import processed when another message in the batch fails', async () => withHarness(async h => {
+it('バッチ内の別メッセージが失敗しても、成功した取り込みは処理済みにする', async () => withHarness(async h => {
   await h.putCsv('daily/good.csv', 'invoiceId,customerId,amountCents,dueDate\nINV-GOOD,Acme,1200,2026-12-31')
   await h.putCsv('daily/bad.csv', 'wrong,columns\nnot,an,invoice')
 

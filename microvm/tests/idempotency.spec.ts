@@ -6,7 +6,7 @@ import { withHarness } from './support'
 const invoiceCsv = 'invoiceId,customerId,amountCents,dueDate\nINV-RETRY,Acme,1200,2026-12-31'
 const objectKey = 'daily/retry.csv'
 
-it('does not publish the same import summary twice when SQS redelivers a message', async () => withHarness(async h => {
+it('SQSがメッセージを再配信しても、同じ取り込み結果を二重に通知しない', async () => withHarness(async h => {
   await h.putCsv(objectKey, invoiceCsv)
   await h.duplicateNextImportEvent(objectKey)
   const result = await handleImportBatch()

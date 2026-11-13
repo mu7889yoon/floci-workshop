@@ -2,7 +2,7 @@ import { it, expect } from 'vitest'
 import { createHarness } from './support'
 import { handleImportBatch } from '../src/worker'
 
-it('validates S3 notifications, SQS batching, DynamoDB writes, and SNS summaries', async () => {
+it('S3通知、SQSバッチ、DynamoDBへの書き込み、SNS通知を検証する', async () => {
   const h = await createHarness()
   try {
     await h.putCsv('smoke/batch.csv', [
@@ -22,7 +22,7 @@ it('validates S3 notifications, SQS batching, DynamoDB writes, and SNS summaries
   }
 })
 
-it('moves a repeatedly failing CSV import into the configured dead-letter queue', async () => {
+it('CSV取り込みに繰り返し失敗したメッセージを、設定済みのDLQへ移す', async () => {
   const h = await createHarness()
   try {
     await h.putCsv('smoke/bad-header.csv', [

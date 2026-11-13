@@ -5,7 +5,7 @@ import { withHarness } from './support'
 
 const invoiceCsv = (amount: number) => `invoiceId,customerId,amountCents,dueDate\nINV-SAME,Acme,${amount},2026-12-31`
 
-it('does not overwrite an invoice when a later import repeats its ID', async () => withHarness(async h => {
+it('同じ請求書IDを再取り込みしても、保存済みの請求書を上書きしない', async () => withHarness(async h => {
     await h.putCsv('daily/first.csv', invoiceCsv(1200))
     await h.putCsv('daily/retry.csv', invoiceCsv(9999))
     await handleImportBatch()

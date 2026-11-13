@@ -2,7 +2,7 @@ import { it, expect } from 'vitest'
 import { createHarness } from './support'
 import { handleImportBatch } from '../src/worker'
 
-it('imports valid invoice rows from an S3 file and reports rejected rows', async () => {
+it('S3ファイルから正常な請求書行を取り込み、不正な行を報告する', async () => {
   const h = await createHarness()
   try {
     const invoices = Array.from({ length: 26 }, (_, index) =>
