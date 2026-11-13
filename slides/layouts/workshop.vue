@@ -58,7 +58,7 @@ const hasWorkbench = computed(() => nav.currentFrontmatter.value.exercise === 'b
 }
 
 .workshop-copy.compact {
-  height: 35%;
+  height: 40%;
   overflow: hidden;
   padding: 1.4% 3.2% 0.7%;
 }

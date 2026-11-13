@@ -54,6 +54,14 @@ const stateKey = 'floci-workshop-workbench-v2'
 const codeByStage = reactive<Record<Stage, string>>({ ...starters })
 const models: Partial<Record<Stage, EditorModel>> = {}
 const viewStates: Partial<Record<Stage, Monaco.editor.ICodeEditorViewState>> = {}
+const editorFontSize = ref(13)
+const terminalFontSize = ref(13)
+
+function boundedFontSize(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(11, Math.min(24, Math.round(value)))
+    : 13
+}
 
 watch(slideExercise, (stage) => {
   if (!stage) return
@@ -71,7 +79,12 @@ function unlockTerminalShortcuts() {
 
 function persist() {
   try {
-    sessionStorage.setItem(stateKey, JSON.stringify({ codeByStage, viewStates }))
+    sessionStorage.setItem(stateKey, JSON.stringify({
+      codeByStage,
+      viewStates,
+      editorFontSize: editorFontSize.value,
+      terminalFontSize: terminalFontSize.value,
+    }))
   } catch {
     // The editor remains usable when browser storage is unavailable.
   }
@@ -86,6 +99,8 @@ function restore() {
         viewStates[stage] = saved.viewStates[stage]
       }
     }
+    editorFontSize.value = boundedFontSize(saved.editorFontSize)
+    terminalFontSize.value = boundedFontSize(saved.terminalFontSize)
   } catch {
     // Start from the exercise files when no saved state is available.
   }
@@ -184,7 +199,7 @@ async function initializeEditor() {
       wordWrap: 'on',
       wrappingIndent: 'same',
       scrollBeyondLastLine: false,
-      fontSize: 13,
+      fontSize: editorFontSize.value,
       tabSize: 2,
       padding: { top: 14, bottom: 14 },
     })
@@ -229,7 +244,7 @@ async function initializeTerminal() {
     convertEol: false,
     cursorBlink: true,
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-    fontSize: 13,
+    fontSize: terminalFontSize.value,
     scrollback: 4000,
     theme: {
       background: '#0b1017',
@@ -382,6 +397,19 @@ async function clearTerminal() {
   if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'clear' }))
 }
 
+function changeEditorFontSize(delta: number) {
+  editorFontSize.value = boundedFontSize(editorFontSize.value + delta)
+  editor?.updateOptions({ fontSize: editorFontSize.value })
+  persist()
+}
+
+function changeTerminalFontSize(delta: number) {
+  terminalFontSize.value = boundedFontSize(terminalFontSize.value + delta)
+  if (terminal) terminal.options.fontSize = terminalFontSize.value
+  resizeTerminal()
+  persist()
+}
+
 async function resetWorkshop() {
   if (!confirm('演習コードを初期状態に戻し、Bashを再起動しますか？')) return
   try {
@@ -445,27 +473,32 @@ const filenames: Record<Stage, string> = {
 <template>
   <section v-show="visible" class="workbench" aria-label="演習ワークスペース">
     <div class="pane editor-pane">
-      <header class="pane-header editor-header">
-        <div class="pane-title"><span class="window-dots"><i /><i /><i /></span><strong>テストコード</strong></div>
+      <div class="pane-tools editor-tools" aria-label="エディタ操作">
         <span class="file-name">{{ filenames[activeStage] }}</span>
-        <div class="toolbar-actions">
-          <button class="quiet-button" title="Bashの画面を消去" @click="clearTerminal">画面を消去</button>
-          <button class="quiet-button reset-button" :disabled="!ready" title="コードとBashを初期化" @click="resetWorkshop">Reset</button>
+        <div class="tool-group font-controls" aria-label="エディタ文字サイズ">
+          <button title="エディタの文字を小さく" aria-label="エディタの文字を小さく" @click="changeEditorFontSize(-1)">A−</button>
+          <span aria-live="polite">{{ editorFontSize }}</span>
+          <button title="エディタの文字を大きく" aria-label="エディタの文字を大きく" @click="changeEditorFontSize(1)">A＋</button>
         </div>
-      </header>
+        <button class="tool-button reset-button" :disabled="!ready" title="コードとBashを初期化" @click="resetWorkshop">Reset</button>
+      </div>
       <div ref="editorHost" class="editor-host" />
     </div>
 
     <div class="pane terminal-pane">
-      <header class="pane-header terminal-header">
-        <div class="pane-title"><span class="terminal-glyph">$_</span><strong>Bash</strong></div>
-        <span class="session-state" :class="{ ready }"><i />{{ sessionLabel }}</span>
-        <span class="terminal-state">{{ terminalLabel }}</span>
+      <div class="pane-tools terminal-tools" aria-label="ターミナル操作">
+        <span class="terminal-state" :class="{ ready }" :title="`${sessionLabel} · ${terminalLabel}`"><i />{{ terminalLabel }}</span>
+        <div class="tool-group font-controls" aria-label="ターミナル文字サイズ">
+          <button title="ターミナルの文字を小さく" aria-label="ターミナルの文字を小さく" @click="changeTerminalFontSize(-1)">A−</button>
+          <span aria-live="polite">{{ terminalFontSize }}</span>
+          <button title="ターミナルの文字を大きく" aria-label="ターミナルの文字を大きく" @click="changeTerminalFontSize(1)">A＋</button>
+        </div>
+        <button class="tool-button" title="ターミナル画面を消去" aria-label="ターミナル画面を消去" @click="clearTerminal">消去</button>
         <nav class="slide-nav" aria-label="スライド移動">
           <button title="前のスライド" :disabled="!nav.hasPrev.value" @click="nav.prevSlide()">←</button>
           <button title="次のスライド" :disabled="!nav.hasNext.value" @click="nav.nextSlide()">→</button>
         </nav>
-      </header>
+      </div>
       <div ref="terminalHost" class="terminal-host" aria-label="参加者専用MicroVMのBash" />
     </div>
   </section>
@@ -476,7 +509,7 @@ const filenames: Record<Stage, string> = {
   position: absolute;
   z-index: 30;
   inset: auto 0 0;
-  height: 65%;
+  height: 60%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   color: #d6deeb;
@@ -486,54 +519,60 @@ const filenames: Record<Stage, string> = {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-.pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.pane { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .editor-pane { background: #111823; border-right: 1px solid #283446; }
 .terminal-pane { background: #0b1017; }
-.pane-header {
-  height: 44px;
-  min-height: 44px;
+.pane-tools {
+  position: absolute;
+  z-index: 2;
+  top: 5px;
+  left: 8px;
+  right: 8px;
+  min-height: 27px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 15px;
-  border-bottom: 1px solid #283446;
-  font-size: 12px;
+  gap: 5px;
+  pointer-events: none;
 }
-.editor-header { background: #171f2b; }
-.terminal-header { background: #111823; }
-.pane-title { display: flex; align-items: center; gap: 9px; color: #e8edf5; white-space: nowrap; }
-.pane-title strong { font-size: 12px; font-weight: 600; }
-.window-dots { display: flex; gap: 4px; }
-.window-dots i { width: 7px; height: 7px; border-radius: 50%; background: #64748b; }
-.window-dots i:first-child { background: #f87171; }
-.window-dots i:nth-child(2) { background: #fbbf24; }
-.window-dots i:nth-child(3) { background: #4ade80; }
-.file-name { min-width: 0; flex: 1; color: #9cacbf; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.toolbar-actions { display: flex; align-items: center; gap: 7px; }
-.quiet-button { border: 0; cursor: pointer; white-space: nowrap; color: #aab8c9; background: transparent; font-size: 10px; padding: 6px; }
-.quiet-button:hover { color: #fff; }
-.quiet-button:disabled { cursor: not-allowed; opacity: 0.45; }
-.editor-host { flex: 1; min-height: 0; }
-.terminal-glyph { color: #6ee7b7; font: 700 13px ui-monospace, monospace; }
-.session-state { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; color: #aab8c9; font-size: 10px; white-space: nowrap; }
-.session-state i { width: 7px; height: 7px; border-radius: 50%; background: #fbbf24; }
-.session-state.ready i { background: #4ade80; box-shadow: 0 0 7px #4ade8070; }
-.terminal-state { min-width: 0; flex: 1; overflow: hidden; color: #91a0b4; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.file-name { min-width: 0; flex: 1; overflow: hidden; color: #9cacbf; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 3px #0b1017; pointer-events: auto; }
+.tool-group, .tool-button, .slide-nav { pointer-events: auto; }
+.tool-group { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border: 1px solid #344154; border-radius: 5px; color: #c6d1df; background: #111823dd; box-shadow: 0 2px 8px #0003; }
+.font-controls button { min-width: 25px; height: 22px; padding: 0 4px; border: 0; border-radius: 3px; color: #d6deeb; background: transparent; cursor: pointer; font-size: 11px; font-weight: 600; }
+.font-controls button:hover { color: #6ee7b7; background: #253244; }
+.font-controls span { min-width: 16px; color: #9cacbf; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; text-align: center; }
+.tool-button { min-width: 30px; height: 27px; padding: 0 6px; border: 1px solid #344154; border-radius: 5px; color: #aab8c9; background: #111823dd; box-shadow: 0 2px 8px #0003; cursor: pointer; font-size: 10px; }
+.tool-button:hover:not(:disabled) { color: #fff; border-color: #6ee7b7; }
+.tool-button:disabled { cursor: not-allowed; opacity: 0.45; }
+.terminal-state { min-width: 0; flex: 1; display: inline-flex; align-items: center; gap: 6px; overflow: hidden; color: #91a0b4; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 3px #0b1017; }
+.terminal-state i { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: #fbbf24; }
+.terminal-state.ready i { background: #4ade80; box-shadow: 0 0 7px #4ade8070; }
 .slide-nav { display: flex; gap: 4px; margin-left: 4px; }
 .slide-nav button { width: 26px; height: 25px; border: 1px solid #344154; border-radius: 4px; color: #c6d1df; background: #1b2533; cursor: pointer; }
 .slide-nav button:hover:not(:disabled) { border-color: #6ee7b7; color: #6ee7b7; }
 .slide-nav button:disabled { opacity: 0.3; cursor: default; }
-.terminal-host { flex: 1; min-height: 0; padding: 9px 12px 6px; background: #0b1017; overflow: hidden; }
+.editor-host { flex: 1; min-height: 0; padding-top: 32px; }
+.terminal-host { flex: 1; min-height: 0; padding: 34px 12px 6px; background: #0b1017; overflow: hidden; }
 .terminal-host .xterm { height: 100%; }
 .terminal-host .xterm-viewport { scrollbar-color: #3a4657 #0b1017; }
 
 @media (max-width: 900px) {
-  .pane-header { gap: 7px; padding: 0 8px; }
-  .toolbar-actions { gap: 2px; }
-  .quiet-button { font-size: 9px; padding: 5px 3px; }
-  .session-state { font-size: 9px; }
-  .terminal-state { display: none; }
-  .terminal-host { padding: 6px; }
+  .pane-tools { left: 5px; right: 5px; gap: 3px; }
+  .file-name { font-size: 9px; }
+  .terminal-state { font-size: 9px; }
+  .tool-button { min-width: 25px; padding: 0 4px; }
+  .font-controls button { min-width: 22px; }
+  .editor-host { padding-top: 30px; }
+  .terminal-host { padding: 32px 6px 6px; }
   .slide-nav button { width: 22px; height: 23px; }
+}
+
+@media (max-width: 520px) {
+  .workbench { height: 60%; }
+  .file-name { max-width: 38%; }
+  .terminal-state { font-size: 8px; }
+  .tool-group { gap: 0; }
+  .font-controls button { min-width: 20px; font-size: 10px; }
+  .tool-button { font-size: 9px; }
+  .slide-nav { gap: 2px; margin-left: 0; }
 }
 </style>

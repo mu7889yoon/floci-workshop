@@ -40,13 +40,27 @@ FlociはAWSの完全な複製ではありません。IAM、クォータ、実AWS
 layout: workshop
 ---
 
+# 公式AWS Emulatorも、接続先を替えて試せる
+
+AWSが公開したローカルエミュレータです。AWS SDKのままAPIを呼び、リクエストは手元のEmulatorへ送ります。
+
+今回は参加者専用Lambda MicroVMに同梱し、設定ファイルのエンドポイントを替えて同じテストを動かします。
+
+IAMポリシーの検証や本番環境の代わりにはなりません。APIごとの再現度を確かめながら使います。
+
+<p class="source-line">AWS公式：<a href="https://docs.aws.amazon.com/emulator/latest/userguide/what-is-service.html">AWS Emulator</a> ・ <a href="https://docs.aws.amazon.com/emulator/latest/userguide/fidelity.html">Fidelity</a></p>
+
+---
+layout: workshop
+---
+
 # ローカルでは、Flociを起動してテストを回す
 
-<div class="command-flow">
-  <code>floci start</code>
-  <span>→</span>
-  <code>FLOCI_URL=http://localhost:4566 npm test</code>
-</div>
+`config/aws-endpoint.json` の接続先をFlociのURLにしておけば、いつものテストコマンドで実行できます。
+
+```json
+{ "endpoint": "http://127.0.0.1:4566" }
+```
 
 AWS SDKとアプリの処理はそのまま。テスト用のAWSサービスをFlociに向けて、開発機やCIで同じ統合テストを実行します。
 
@@ -128,6 +142,26 @@ layout: workshop
 実務では、何を重複させたくないかに応じて冪等キー、条件付き書き込み、重複排除、Outboxなどを選びます。
 
 Flociで速く確かめ、IAM・ネットワーク・クォータなどFlociが再現しない条件はAWSでも確認します。
+
+---
+layout: workshop
+exercise: basic
+---
+
+# エンドポイントを替えて、AWS Emulatorでも再実行
+
+`config/aws-endpoint.json` のURLを `https://127.0.0.1:9297` に替え、同じテストを実行します。
+
+```bash
+sed -i 's#http://127.0.0.1:4566#https://127.0.0.1:9297#' config/aws-endpoint.json
+npm run test:idempotency
+```
+
+次のテスト実行時にFlociを停止し、AWS Emulatorへ切り替えます。証明書と一時資格情報は自動設定され、同時起動はしません。
+
+AWS Emulatorのリソースはメモリ上にあり、Flociへ戻すとEmulator側の状態は消えます。IAMなどの確認は実AWSで行います。
+
+Flociへ戻すときはURLを `http://127.0.0.1:4566` に戻してから、同じコマンドを実行します。
 
 ---
 layout: workshop

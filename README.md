@@ -12,8 +12,10 @@ Browser: Slidev + persistent Monaco editor + xterm.js
    └── WSS + short-lived, port-scoped token → attendee MicroVM :8081
                                                 ├── real interactive Bash PTY
                                                 ├── Vitest
-                                                └── Floci: S3 → SQS → batch worker → DynamoDB → SNS
-                                                                    └── SQS DLQ for repeated failures
+                                                └── one local AWS backend at a time:
+                                                    Floci or AWS Emulator
+                                                    S3 → SQS → batch worker → DynamoDB → SNS
+                                                                      └── SQS DLQ for repeated failures
 ```
 
 The target system imports supplier invoice CSVs in batches. S3 object-created notifications enqueue import jobs; the worker polls up to 10 jobs, validates rows, writes valid invoices to DynamoDB in batches of at most 25, and publishes a per-file summary through SNS. Invalid rows appear in the summary. Transient failures leave messages for SQS retry and eventual DLQ investigation. The advanced exercise discovers an unresolved duplicate-invoice overwrite bug.
@@ -24,7 +26,11 @@ The Slidev deck follows the supplied `mu7889yoon` Marp theme: light grid, circul
 
 The editor syncs both exercise files to the attendee VM as they change. Shell-side edits are watched and reflected back into Monaco. The control API mints a five-minute Lambda MicroVM auth token scoped only to terminal port 8081; the browser uses it for the WebSocket connection. It receives no AWS credentials or MicroVM ID. Each VM has no internet egress connector or AWS execution role. A scheduled cleanup function terminates expired VMs.
 
-The duplicate-delivery exercise puts the same S3 event body into the Floci SQS queue twice, then checks the number of SNS summaries. Participants replace a TODO with `expect(summaries).toHaveLength(1)`; the current worker sends two summaries, so the test exposes the duplicate side effect. This controlled fixture makes the behavior repeatable; it does not claim to reproduce every timing detail of AWS SQS redelivery.
+The duplicate-delivery exercise puts the same S3 event body into the SQS queue twice, then checks the number of SNS summaries. Participants replace a TODO with `expect(summaries).toHaveLength(1)`; the current worker sends two summaries, so the test exposes the duplicate side effect. This controlled fixture makes the behavior repeatable; it does not claim to reproduce every timing detail of AWS SQS redelivery.
+
+The attendee MicroVM includes a pinned ARM64 build of the official AWS Emulator alongside Floci. `microvm/config/aws-endpoint.json` selects the local endpoint: `http://127.0.0.1:4566` for Floci or `https://127.0.0.1:9297` for AWS Emulator. The next health check or test run stops the current backend and starts the selected one, so they never compete for the 512-MiB VM. The test launcher configures AWS Emulator's generated credentials and TLS certificate, clears AWS profile credentials, and disables its telemetry for the workshop image. Switching back stops AWS Emulator and clears its in-memory resources.
+
+AWS Emulator support is evolving quickly. Its fidelity varies by service and API, and it does not evaluate IAM policies. This hands-on uses it to compare the same AWS SDK integration path; it does not replace security, quota, or production checks in AWS. Review the current [AWS Emulator fidelity guide](https://docs.aws.amazon.com/emulator/latest/userguide/fidelity.html) before the event.
 
 ## Prerequisites
 
