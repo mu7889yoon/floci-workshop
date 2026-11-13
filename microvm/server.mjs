@@ -15,7 +15,7 @@ const TERMINAL_PORT = 8081
 const MAX_BODY_BYTES = 256 * 1024
 const MAX_CODE_CHARS = 24_000
 const MAX_OUTPUT_CHARS = 16_000
-const TEST_TIMEOUT_MS = 12_000
+const TEST_TIMEOUT_MS = 60_000
 const FILES = {
   basic: 'tests/idempotency.spec.ts',
   advanced: 'tests/advanced.spec.ts',
