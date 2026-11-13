@@ -1,101 +1,136 @@
 ---
 theme: default
-title: AWSなしでAWSを統合テスト!? Flociを触ってみよう
+title: AWS統合テストをローカルで高速化する
 aspectRatio: 16/9
 monaco: true
 layout: workshop
 ---
 
-# AWSなしでAWSを統合テスト!?
+# AWS統合テストをローカルで高速化する
 
-## Flociで重複実行に強いテストを書く
+## FlociとAWS Emulatorで、重複実行に備える
 
 JAWS-UG名古屋 / Demo-1グランプリ
 
-<small>ローカルテストの悩み → Floci → AWS構成 → テストを書く</small>
+<small>ローカルテストの課題 / エミュレータの選択 / 重複実行の検証</small>
 
 ---
 layout: workshop
 ---
 
-# ローカルのテスト、どう回していますか？
+# モックだけでは、AWSサービス間の契約を検証できない
 
-SDKをモックすれば関数単体の動きは確認できます。でも、S3イベントからSQS、DynamoDB、SNSまでつながったときの振る舞いは、モックだけでは分かりません。
+SDKをモックすれば、関数単体の分岐は確認できます。一方、S3イベントからSQS、DynamoDB、SNSまでつながったときの振る舞いは、モックだけでは分かりません。
 
-毎回AWSへ接続するテストは、費用・待ち時間・共有環境の片付けも気になります。
-
----
-layout: workshop
----
-
-# FlociはAWS互換APIをローカルで動かすエミュレータ
-
-アプリは普段のAWS SDKを使い、接続先だけFlociに向けます。AWSアカウントを使わず、AWSサービス間のつながりをローカルで試せます。
-
-FlociはAWSの完全な複製ではありません。IAM、クォータ、実AWS固有の挙動は、別の確認が必要です。
-
-<p class="source-line">公式情報：<a href="https://github.com/floci-io/floci">Floci GitHub</a> ・ <a href="https://floci.io/">floci.io</a></p>
+AWSへ毎回デプロイするテストは、待ち時間、共有環境の準備と片付けが必要です。
 
 ---
 layout: workshop
 ---
 
-# 公式AWS Emulatorも、接続先を替えて試せる
+# FlociはAWS互換APIをローカルに提供する
 
-AWSが公開したローカルエミュレータです。AWS SDKのままAPIを呼び、リクエストは手元のEmulatorへ送ります。
+Flociは、AWS互換APIをローカルで提供するオープンソースのエミュレータです。AWS SDKやCLIの接続先をFlociに向け、S3・SQS・DynamoDB・SNSの連携を手元で試せます。
 
-今回は参加者専用Lambda MicroVMに同梱し、設定ファイルのエンドポイントを替えて同じテストを動かします。
+AWSアカウントや認証トークンを使わずに起動できます。サービスごとに再現範囲が異なるため、IAM・クォータ・AWS固有の挙動は実AWSでも確認します。
 
-IAMポリシーの検証や本番環境の代わりにはなりません。APIごとの再現度を確かめながら使います。
-
-<p class="source-line">AWS公式：<a href="https://docs.aws.amazon.com/emulator/latest/userguide/what-is-service.html">AWS Emulator</a> ・ <a href="https://docs.aws.amazon.com/emulator/latest/userguide/fidelity.html">Fidelity</a></p>
+<p class="source-line">Floci公式：<a href="https://github.com/floci-io/floci">GitHub</a> ・ <a href="https://floci.io/floci/">概要と利用方法</a></p>
 
 ---
 layout: workshop
 ---
 
-# ローカルでは、Flociを起動してテストを回す
+# AWS EmulatorはAWS公式のローカル検証環境
 
-`config/aws-endpoint.json` の接続先をFlociのURLにしておけば、いつものテストコマンドで実行できます。
+2026年11月11日に提供が始まりました。AWS CLIやAWS SDKの呼び出しを、ローカルのHTTPSエンドポイントへ送ります。
+
+起動時に認証情報と証明書が発行され、リソース状態は停止するまでメモリ上に保持されます。未対応APIは `501 NotImplemented` を返します。
+
+サービスごとの再現度は公開Fidelityで確認できます。IAMポリシー、リソースポリシー、クロスアカウント、クロスリージョンなどのセキュリティ検証は実AWSで行います。
+
+<p class="source-line">AWS公式：<a href="https://aws.amazon.com/about-aws/whats-new/2026/11/aws-emulator-now-available/">提供開始</a> ・ <a href="https://docs.aws.amazon.com/emulator/latest/userguide/fidelity.html">Fidelity</a></p>
+
+---
+layout: workshop
+---
+
+# FlociとAWS Emulatorは、再現方式が異なる
+
+<div class="comparison-grid">
+  <section class="comparison-card">
+    <h3>Floci</h3>
+    <p><strong>立ち位置</strong>　コミュニティのOSS（MIT）</p>
+    <p><strong>接続先</strong>　HTTP · <code>localhost:4566</code></p>
+    <p><strong>特徴</strong>　複数サービスをまとめてローカルで動かし、保存方式も選べる</p>
+    <p class="comparison-note">APIやサービスごとに再現範囲を確認</p>
+  </section>
+  <section class="comparison-card">
+    <h3>AWS Emulator</h3>
+    <p><strong>立ち位置</strong>　AWS公式 · CC0</p>
+    <p><strong>接続先</strong>　HTTPS · <code>localhost:9297</code></p>
+    <p><strong>特徴</strong>　AWS APIモデルを基に実装し、Fidelityを公開</p>
+    <p class="comparison-note">未対応APIは501。状態はメモリ上に保持</p>
+  </section>
+</div>
+
+用途とAPIの再現範囲に合わせて選びます。AWS EmulatorはAPIごとに再現度が異なり、セキュリティ検証は実AWSで行います。
+
+<p class="source-line"><a href="https://github.com/floci-io/floci">Floci公式リポジトリ</a> ・ <a href="https://docs.aws.amazon.com/emulator/latest/userguide/fidelity.html">AWS Emulator Fidelity</a></p>
+
+---
+layout: workshop
+---
+
+# ローカルFlociで、AWS統合テストを速く回す
+
+アプリのコードとAWS SDKはそのまま使い、接続先だけを `config/aws-endpoint.json` で切り替えます。
 
 ```json
 { "endpoint": "http://127.0.0.1:4566" }
 ```
 
-AWS SDKとアプリの処理はそのまま。テスト用のAWSサービスをFlociに向けて、開発機やCIで同じ統合テストを実行します。
+AWSアカウントやクラウド上のテスト資源を用意せず、開発機やCIで同じ経路を繰り返し検証できます。イベントの変換、サービス間連携、再試行、二重通知などの不具合を、デプロイ前に素早く見つけられます。
+
+<p class="supporting">IAM・クォータ・AWS固有の挙動は、実AWSで別に確認します。</p>
 
 ---
 layout: workshop
 ---
 
-# 今回のデモで使うAWS構成
+# 請求CSVの取り込みを、AWSサービス間の経路で検証する
 
 <div class="architecture">
   <div class="architecture-main">
-    <span class="service">S3<br><small>請求CSV</small></span>
+    <div class="architecture-service"><img src="/aws-icons/s3.svg" alt="Amazon S3" /><strong>Amazon S3</strong><small>請求CSV</small></div>
     <span class="arrow">→</span>
-    <span class="service">SQS<br><small>取込キュー</small></span>
+    <div class="architecture-service"><img src="/aws-icons/sqs.svg" alt="Amazon SQS" /><strong>Amazon SQS</strong><small>取込イベント</small></div>
     <span class="arrow">→</span>
-    <span class="service">バッチワーカー<br><small>最大10件</small></span>
+    <div class="architecture-service"><img src="/aws-icons/lambda.svg" alt="AWS Lambda" /><strong>AWS Lambda</strong><small>最大10件を処理</small></div>
     <span class="arrow">→</span>
-    <span class="service">DynamoDB<br><small>請求書</small></span>
+    <div class="architecture-service"><img src="/aws-icons/dynamodb.svg" alt="Amazon DynamoDB" /><strong>Amazon DynamoDB</strong><small>請求書</small></div>
     <span class="arrow">→</span>
-    <span class="service">SNS<br><small>結果通知</small></span>
+    <div class="architecture-service"><img src="/aws-icons/sns.svg" alt="Amazon SNS" /><strong>Amazon SNS</strong><small>結果通知</small></div>
   </div>
-  <div class="architecture-note">処理に失敗したSQSメッセージは再試行され、上限を超えるとDLQへ</div>
+  <div class="architecture-note">失敗メッセージは再試行し、上限を超えるとDLQへ</div>
 </div>
 
-この一連の経路をFloci上に作り、実際のAWS SDKを使うテストで確かめます。
+この一連の経路をFloci上で動かし、AWS SDKを使った統合テストで確かめます。
+
+<p class="source-line">アイコン：<a href="https://aws.amazon.com/architecture/icons/">AWS Architecture Icons · Q3 2026</a></p>
 
 ---
 layout: workshop
 ---
 
-# 同じメッセージがもう一度届くことがある
+# SQS標準キューは、同じメッセージを複数回届ける
 
-SQS標準キューは少なくとも1回の配信です。処理後に削除できなかった場合など、同じメッセージが再配信され、ワーカーがもう一度動くことがあります。
+標準キューは少なくとも1回の配信です。処理後に削除されなかった場合など、同じメッセージが再配信されます。
 
-請求の二重計上、通知の二重送信、同じレコードの意図しない上書きにつながります。
+<ol class="challenge-list">
+  <li><strong>再配信</strong>　同じメッセージがもう一度届く</li>
+  <li><strong>並行実行</strong>　2つのワーカーが同じイベントを処理しても、副作用は1回にする</li>
+  <li><strong>追加課題</strong>　請求書の上書きやバッチの部分失敗を検証する</li>
+</ol>
 
 <p class="source-line">AWS公式：<a href="https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/standard-queues-at-least-once-delivery.html">SQS at-least-once delivery</a></p>
 
@@ -103,11 +138,11 @@ SQS標準キューは少なくとも1回の配信です。処理後に削除で�
 layout: workshop
 ---
 
-# 1つの取り込みから、結果通知は1つ
+# 同じ取り込みから出す結果通知を1件に保つ
 
-今回の約束は「同じS3イベントがSQSから2回来ても、請求CSVの処理結果を二重に通知しない」です。
+同じS3イベントがSQSから再配信されても、請求CSVの処理結果を二重に通知しません。
 
-Flociに同じSQSイベントを2回渡し、SNS通知が重複する問題をテストで見つけます。
+逐次再配信と同時実行の両方で、SNS通知が1件に保たれることをテストします。
 
 <JoinWorkshop />
 
@@ -116,18 +151,18 @@ layout: workshop
 exercise: basic
 ---
 
-# ここから、Flociのテストコードを書きます
+# 再配信と並行実行で、通知の重複を検出する
 
-`tests/idempotency.spec.ts` のTODOと `throw` を `expect(summaries).toHaveLength(1)` に置き換えてください。
+`tests/idempotency.spec.ts` の2つのTODOを `expect(summaries).toHaveLength(1)` に置き換えます。片方は再配信、もう片方は2つのワーカーによる同時処理です。
 
-右のBashで `npm run test:idempotency` を実行します。`Expected 1 / Received 2` が二重通知の検知です。
+右のBashで `npm run test:idempotency` を実行します。`Expected 1 / Received 2` は二重通知を示します。
 
 ---
 layout: workshop
 exercise: advanced
 ---
 
-# 同じ請求書IDが再登場したら？
+# 同じ請求書IDの再取り込みが、保存済み金額を上書きする
 
 同じ請求書IDのCSVを再投入し、保存済み金額が変わらないことをテストします。
 
@@ -138,7 +173,7 @@ layout: workshop
 exercise: advanced
 ---
 
-# 1件失敗しても、成功分は進められる？
+# バッチの部分失敗でも、成功分の処理を継続する
 
 正常CSVと不正CSVを同じSQSバッチで処理し、成功分は保存・通知され、失敗分だけが再試行されるかを確認します。
 
@@ -148,7 +183,7 @@ exercise: advanced
 layout: workshop
 ---
 
-# テストが教えるのは、二重実行を前提にすること
+# 冪等性は、業務キーと副作用の境界で設計する
 
 実務では、何を重複させたくないかに応じて冪等キー、条件付き書き込み、重複排除、Outboxなどを選びます。
 
@@ -159,9 +194,9 @@ layout: workshop
 exercise: basic
 ---
 
-# エンドポイントを替えて、AWS Emulatorでも再実行
+# AWS Emulatorでは、APIごとの再現度を確認する
 
-`config/aws-endpoint.json` のURLを `https://127.0.0.1:9297` に替え、同じテストを実行します。
+`config/aws-endpoint.json` のURLを `https://127.0.0.1:9297` に替え、同じテストを実行します。未対応APIは `501 NotImplemented` になるため、対象サービスのFidelityも確認します。
 
 ```bash
 sed -i 's#http://127.0.0.1:4566#https://127.0.0.1:9297#' config/aws-endpoint.json
@@ -178,7 +213,7 @@ Flociへ戻すときはURLを `http://127.0.0.1:4566` に戻してから、同�
 layout: workshop
 ---
 
-# 終了したら演習環境を停止
+# 演習環境を終了し、MicroVMを解放する
 
 「演習を終了してVMを停止」を押して、専用のMicroVMを解放します。
 

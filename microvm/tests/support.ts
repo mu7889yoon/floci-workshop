@@ -80,6 +80,31 @@ async function queueInfo(queueUrl: string) {
   return arn
 }
 
+async function takeImportEvent(queueUrl: string, expectedKey: string) {
+  let original: { Body: string; ReceiptHandle: string } | undefined
+  for (let attempt = 0; attempt < 6 && !original; attempt++) {
+    const result = await sqs.send(new ReceiveMessageCommand({
+      QueueUrl: queueUrl,
+      MaxNumberOfMessages: 10,
+      WaitTimeSeconds: 1,
+    }))
+    for (const message of result.Messages ?? []) {
+      // S3 may enqueue a test notification when the queue notification is configured.
+      if (!original && isExpectedObjectCreatedEvent(message.Body, expectedKey)
+        && message.Body && message.ReceiptHandle) {
+        original = { Body: message.Body, ReceiptHandle: message.ReceiptHandle }
+      } else if (message.ReceiptHandle) {
+        await sqs.send(new DeleteMessageCommand({
+          QueueUrl: queueUrl,
+          ReceiptHandle: message.ReceiptHandle,
+        }))
+      }
+    }
+  }
+  if (!original) throw new Error('The S3 import event was not queued')
+  return original
+}
+
 export async function createHarness() {
   const suffix = randomUUID().replaceAll('-', '').slice(0, 14)
   const tableName = `invoices-${suffix}`
@@ -158,39 +183,39 @@ export async function createHarness() {
   process.env.QUEUE_URL = queue.QueueUrl
   process.env.DLQ_URL = dlq.QueueUrl
   process.env.SNS_TOPIC_ARN = topic.TopicArn
+  let concurrentQueueUrl: string | undefined
+
+  async function getConcurrentQueueUrl() {
+    if (concurrentQueueUrl) return concurrentQueueUrl
+    const concurrentQueue = await sqs.send(new CreateQueueCommand({
+      QueueName: `invoice-jobs-concurrent-${suffix}`,
+    }))
+    if (!concurrentQueue.QueueUrl) throw new Error('Concurrent import queue was not created')
+    concurrentQueueUrl = concurrentQueue.QueueUrl
+    return concurrentQueueUrl
+  }
 
   return {
     async putCsv(key: string, csv: string) {
       await s3.send(new PutObjectCommand({ Bucket: bucketName, Key: key, Body: csv }))
     },
     async duplicateNextImportEvent(expectedKey: string) {
-      let original
-      for (let attempt = 0; attempt < 6 && !original; attempt++) {
-        const result = await sqs.send(new ReceiveMessageCommand({
-          QueueUrl: queue.QueueUrl!,
-          MaxNumberOfMessages: 10,
-          WaitTimeSeconds: 1,
-        }))
-        for (const message of result.Messages ?? []) {
-          if (!original && isExpectedObjectCreatedEvent(message.Body, expectedKey)
-            && message.Body && message.ReceiptHandle) {
-            original = message
-          } else if (message.ReceiptHandle) {
-            // S3 can send a test notification when the queue is configured.
-            // Remove unrelated events so only the target CSV is processed.
-            await sqs.send(new DeleteMessageCommand({
-              QueueUrl: queue.QueueUrl!,
-              ReceiptHandle: message.ReceiptHandle,
-            }))
-          }
-        }
-      }
-      if (!original?.Body || !original.ReceiptHandle) throw new Error('The S3 import event was not queued')
+      const original = await takeImportEvent(queue.QueueUrl!, expectedKey)
       await sqs.send(new DeleteMessageCommand({ QueueUrl: queue.QueueUrl!, ReceiptHandle: original.ReceiptHandle }))
       await Promise.all([1, 2].map(() => sqs.send(new SendMessageCommand({
         QueueUrl: queue.QueueUrl!,
-        MessageBody: original!.Body!,
+        MessageBody: original.Body,
       }))))
+    },
+    async duplicateNextImportEventConcurrently(expectedKey: string) {
+      const original = await takeImportEvent(queue.QueueUrl!, expectedKey)
+      await sqs.send(new DeleteMessageCommand({ QueueUrl: queue.QueueUrl!, ReceiptHandle: original.ReceiptHandle }))
+      const secondQueueUrl = await getConcurrentQueueUrl()
+      await Promise.all([queue.QueueUrl!, secondQueueUrl].map(QueueUrl => sqs.send(new SendMessageCommand({
+        QueueUrl,
+        MessageBody: original.Body,
+      }))))
+      return [queue.QueueUrl!, secondQueueUrl] as const
     },
     async getInvoice(invoiceId: string) {
       const item = await db.send(new GetItemCommand({
@@ -243,6 +268,7 @@ export async function createHarness() {
       await s3.send(new DeleteBucketCommand({ Bucket: bucketName })).catch(() => {})
       await sns.send(new DeleteTopicCommand({ TopicArn: topic.TopicArn! })).catch(() => {})
       await sqs.send(new DeleteQueueCommand({ QueueUrl: summaryQueue.QueueUrl! })).catch(() => {})
+      if (concurrentQueueUrl) await sqs.send(new DeleteQueueCommand({ QueueUrl: concurrentQueueUrl })).catch(() => {})
       await sqs.send(new DeleteQueueCommand({ QueueUrl: queue.QueueUrl! })).catch(() => {})
       await sqs.send(new DeleteQueueCommand({ QueueUrl: dlq.QueueUrl! })).catch(() => {})
       await db.send(new DeleteTableCommand({ TableName: tableName })).catch(() => {})

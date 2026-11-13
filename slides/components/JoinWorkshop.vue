@@ -75,10 +75,9 @@ async function join() {
     <div v-if="joined && status === 'ready'" class="text-green-600 font-semibold">✓ 専用演習環境に接続済み</div>
     <div v-else-if="loading || status === 'starting'" class="font-semibold">専用MicroVMとFlociを準備中…</div>
     <form v-else @submit.prevent="join">
-      <button type="submit" :disabled="loading" class="join-button rounded px-4 py-2 disabled:opacity-60">参加して環境を起動</button>
+      <button type="submit" :disabled="loading" class="join-button rounded px-4 py-2 disabled:opacity-60">MicroVM起動</button>
     </form>
     <p v-if="message" class="text-sm mt-2">{{ message }}</p>
-    <p class="text-xs opacity-70 mt-2">会場コードやAWSアカウントは不要です。1人ずつ専用の実行環境を割り当てます。</p>
   </section>
 </template>
 

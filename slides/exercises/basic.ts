@@ -18,3 +18,18 @@ it('SQSがメッセージを再配信しても、同じ取り込み結果を二�
   // TODO: assert that the duplicated event produces one summary.
   throw new Error('TODO: complete the idempotency assertion')
 }))
+
+it('同じSQSイベントを2つのワーカーが同時処理しても、結果通知は1件だけにする', async () => withHarness(async h => {
+  await h.putCsv(objectKey, invoiceCsv)
+  const [firstQueueUrl, secondQueueUrl] = await h.duplicateNextImportEventConcurrently(objectKey)
+  const [first, second] = await Promise.all([
+    handleImportBatch(firstQueueUrl),
+    handleImportBatch(secondQueueUrl),
+  ])
+  expect(first.processed + second.processed).toBe(2)
+  expect(first.failed + second.failed).toBe(0)
+  const summaries = await h.receiveSummaries()
+
+  // TODO: concurrent invocations should publish one summary in total.
+  throw new Error('TODO: complete the concurrent idempotency assertion')
+}))

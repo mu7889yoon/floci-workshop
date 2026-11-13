@@ -27,9 +27,9 @@ export type Invoice = {
   importedAt: string
 }
 
-export async function receiveImportEvents() {
+export async function receiveImportEvents(queueUrl = process.env.QUEUE_URL!) {
   const result = await sqs.send(new ReceiveMessageCommand({
-    QueueUrl: process.env.QUEUE_URL!,
+    QueueUrl: queueUrl,
     MaxNumberOfMessages: 10,
     WaitTimeSeconds: 1,
   }))
@@ -83,10 +83,13 @@ export async function publishImportSummary(summary: {
   }))
 }
 
-export async function ackMessages(messages: Array<{ Id: string; ReceiptHandle: string }>) {
+export async function ackMessages(
+  messages: Array<{ Id: string; ReceiptHandle: string }>,
+  queueUrl = process.env.QUEUE_URL!,
+) {
   for (let offset = 0; offset < messages.length; offset += 10) {
     const result = await sqs.send(new DeleteMessageBatchCommand({
-      QueueUrl: process.env.QUEUE_URL!,
+      QueueUrl: queueUrl,
       Entries: messages.slice(offset, offset + 10),
     }))
     if (result.Failed?.length) {

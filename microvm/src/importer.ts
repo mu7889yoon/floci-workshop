@@ -11,8 +11,11 @@ function decodeS3Key(key: string) {
   return decodeURIComponent(key.replaceAll('+', ' '))
 }
 
-export async function processImportBatch(persist: (invoices: Invoice[]) => Promise<number>) {
-  const messages = await receiveImportEvents()
+export async function processImportBatch(
+  persist: (invoices: Invoice[]) => Promise<number>,
+  queueUrl?: string,
+) {
+  const messages = await receiveImportEvents(queueUrl)
   const completed: Array<{ Id: string; ReceiptHandle: string }> = []
   let failed = 0
 
@@ -47,6 +50,6 @@ export async function processImportBatch(persist: (invoices: Invoice[]) => Promi
     }
   }
 
-  if (completed.length) await ackMessages(completed)
+  if (completed.length) await ackMessages(completed, queueUrl)
   return { received: messages.length, processed: completed.length, failed }
 }

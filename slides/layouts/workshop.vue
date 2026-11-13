@@ -187,8 +187,8 @@ const hasWorkbench = computed(() => nav.currentFrontmatter.value.exercise === 'b
 }
 
 .workshop-copy .architecture {
-  margin: 1.4em 0 1.2em;
-  padding: 1.2em 1em;
+  margin: 0.9em 0 0.7em;
+  padding: 0.65em 0.7em;
   border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
   border-radius: 0.7em;
   background: color-mix(in srgb, currentColor 3%, transparent);
@@ -199,30 +199,43 @@ const hasWorkbench = computed(() => nav.currentFrontmatter.value.exercise === 'b
   align-items: center;
   justify-content: center;
   flex-wrap: nowrap;
-  gap: 0.3em;
+  gap: 0.25em;
 }
 
-.workshop-copy .service {
+.workshop-copy .architecture-service {
   min-width: 0;
   flex: 1;
-  padding: 0.55em 0.35em;
-  border: 1px solid color-mix(in srgb, currentColor 23%, transparent);
-  border-radius: 0.5em;
-  font-size: 0.9em;
-  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.15em;
+  padding: 0.25em 0.1em;
   text-align: center;
 }
 
-.workshop-copy .service small {
-  font-size: 0.75em;
+.workshop-copy .architecture-service img {
+  width: clamp(42px, 5.8vw, 64px);
+  height: clamp(42px, 5.8vw, 64px);
+  object-fit: contain;
+}
+
+.workshop-copy .architecture-service strong {
+  font-size: 17px;
+  line-height: 1.15;
+}
+
+.workshop-copy .architecture-service small {
+  font-size: 15px;
   font-weight: 400;
+  line-height: 1.2;
   opacity: 0.75;
 }
 
 .workshop-copy .arrow {
   color: #333;
   flex: 0 0 auto;
-  font-size: var(--yoon-font-small);
+  font-size: 30px;
   font-weight: 700;
 }
 
@@ -231,6 +244,53 @@ const hasWorkbench = computed(() => nav.currentFrontmatter.value.exercise === 'b
   color: color-mix(in srgb, currentColor 75%, transparent);
   font-size: var(--yoon-font-note);
   text-align: center;
+}
+
+.workshop-copy .comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1rem 0 0.8rem;
+}
+
+.workshop-copy .comparison-card {
+  min-width: 0;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, currentColor 3%, transparent);
+}
+
+.workshop-copy .comparison-card h3 {
+  margin: 0 0 0.35rem;
+  font-size: 25px;
+  line-height: 1.2;
+}
+
+.workshop-copy .comparison-card p {
+  margin: 0.3rem 0;
+  font-size: 19px;
+  line-height: 1.35;
+}
+
+.workshop-copy .comparison-card .comparison-note {
+  margin-top: 0.6rem;
+  font-size: 16px;
+  opacity: 0.75;
+}
+
+.workshop-copy .challenge-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.3em;
+  margin: 0.7em 0;
+  padding-left: 1.25em;
+}
+
+.workshop-copy .challenge-list li {
+  padding-left: 0.15em;
+  font-size: 23px;
+  line-height: 1.32;
 }
 
 .workshop-copy.compact h1 {
