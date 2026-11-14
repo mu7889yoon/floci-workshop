@@ -4,7 +4,7 @@ const busy = ref(false)
 const message = ref('')
 
 async function leave() {
-  if (!confirm('演習を終了して専用MicroVMを停止しますか？')) return
+  if (!confirm('MicroVMを停止しますか？')) return
   busy.value = true
   try {
     const response = await fetch('/api/leave', {

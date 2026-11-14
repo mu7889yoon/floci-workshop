@@ -249,34 +249,51 @@ const hasWorkbench = computed(() => nav.currentFrontmatter.value.exercise === 'b
 .workshop-copy .comparison-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  margin: 1rem 0 0.8rem;
+  gap: 2.5rem;
+  margin: 1.2rem 0 0.8rem;
 }
 
-.workshop-copy .comparison-card {
+.workshop-copy .comparison-column {
   min-width: 0;
-  padding: 0.7rem 0.9rem;
-  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
-  border-radius: 0.6rem;
-  background: color-mix(in srgb, currentColor 3%, transparent);
+  padding: 0;
 }
 
-.workshop-copy .comparison-card h3 {
-  margin: 0 0 0.35rem;
-  font-size: 25px;
+.workshop-copy .comparison-column h3 {
+  margin: 0 0 0.45em;
+  font-size: 32px;
   line-height: 1.2;
 }
 
-.workshop-copy .comparison-card p {
-  margin: 0.3rem 0;
-  font-size: 19px;
-  line-height: 1.35;
+.workshop-copy .comparison-column p {
+  margin: 0.45em 0;
+  font-size: 25px;
+  line-height: 1.4;
 }
 
-.workshop-copy .comparison-card .comparison-note {
-  margin-top: 0.6rem;
-  font-size: 16px;
-  opacity: 0.75;
+.workshop-copy .comparison-column .comparison-note {
+  margin-top: 0.75em;
+  font-size: 22px;
+  opacity: 0.9;
+}
+
+.workshop-copy .local-test-list {
+  display: block;
+  margin: 0.7em 0;
+  padding-left: 1.1em;
+}
+
+.workshop-copy .local-test-list > li {
+  margin: 0.1em 0 0.35em;
+}
+
+.workshop-copy .local-test-list ul {
+  display: block;
+  margin: 0.05em 0 0.25em;
+  padding-left: 1.1em;
+}
+
+.workshop-copy .local-test-list ul > li {
+  margin: 0.05em 0;
 }
 
 .workshop-copy .challenge-list {

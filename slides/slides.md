@@ -16,11 +16,16 @@ layout: workshop
 layout: workshop
 ---
 
-# ローカルテストのありがたみ
+# ローカルテスト
 
-SDKをモックすれば、関数単体の分岐は確認できます。一方、S3イベントからSQS、DynamoDB、SNSまでつながったときの振る舞いは、モックだけでは分かりません。
-
-AWSへ毎回デプロイするテストは、待ち時間、共有環境の準備と片付けが必要です。
+- SDKのモック
+  - 関数単体の分岐は確認できる
+  - AWSサービス間の連携は検証しづらい
+- 実AWSでの統合でのテスト
+  - 実際のサービス間の連携を確認できる
+  - 環境の用意、デプロイが必要
+- ローカルエミュレータ
+  - AWS SDKの接続先を切り替えて、同じテストを繰り返せる
 
 ---
 layout: workshop
@@ -53,16 +58,18 @@ layout: workshop
 # Floci と AWS Emulator
 
 <div class="comparison-grid">
-  <section class="comparison-card">
+  <section class="comparison-column">
     <h3>Floci</h3>
-    <p><strong>開発元</strong>　Community MIT license</p>
+    <p><strong>開発元</strong>　Community</p>
+    <p><strong>ライセンス</strong>  MIT license</p>
     <p><strong>接続先</strong>　HTTP</p>
     <p><strong>特徴</strong>　複数サービスをまとめてローカルで動かし、保存方式も選べる</p>
     <p class="comparison-note">APIやサービスごとに再現範囲を確認</p>
   </section>
-  <section class="comparison-card">
+  <section class="comparison-column">
     <h3>AWS Emulator</h3>
-    <p><strong>開発元</strong>　AWS CC0</p>
+    <p><strong>開発元</strong>　AWS</p>
+    <p><strong>ライセンス</strong>  CC0</p>
     <p><strong>接続先</strong>　HTTPS</p>
     <p><strong>特徴</strong>　AWS APIモデルを基に実装し、Fidelityを公開</p>
     <p class="comparison-note">未対応APIは501。状態はメモリ上に保持</p>
@@ -111,7 +118,7 @@ SQS標準キューは**少なくとも1回の配信**、処理後に削除され
 layout: workshop
 ---
 
-# 同じ取り込みから出す結果通知を1件に保つ
+# 取り込みから出す通知が1件か確認していく
 
 同じS3イベントがSQSから再配信されても、請求CSVの処理結果を二重に通知しません。
 
@@ -128,7 +135,7 @@ exercise: basic
 
 2つのTODOを `expect(summaries).toHaveLength(1)` に置き換えます。1つは再配信、もう1つは同時処理です。
 
-`npm run test:idempotency` を実行し、`Expected 1 / Received 2` は二重通知を示します。
+`npm run test:idempotency`を実行し、`Expected 1 / Received 2` は二重通知を示します。
 
 ---
 layout: workshop
@@ -160,9 +167,8 @@ exercise: basic
 # AWS Emulatorでもやってみる
 
 
-```bash
-sed -i 's#http://127.0.0.1:4566#https://127.0.0.1:9297#' config/aws-endpoint.json
-```
+
+`sed -i 's#http://127.0.0.1:4566#https://127.0.0.1:9297#' config/aws-endpoint.json`
 を実行し、エンドポイントをFlociからAWS Emulatorへ切り替えます
 
 `npm run test:idempotency`
@@ -171,8 +177,8 @@ sed -i 's#http://127.0.0.1:4566#https://127.0.0.1:9297#' config/aws-endpoint.jso
 layout: workshop
 ---
 
-# 演習環境を終了し、MicroVMを解放する
+# お疲れ様でした！
 
-「演習を終了してVMを停止」を押して、専用のMicroVMを解放します。
+「VMを停止」を押して、専用のMicroVMを解放します。
 
 <LeaveWorkshop />

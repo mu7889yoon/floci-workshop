@@ -73,7 +73,7 @@ async function join() {
 <template>
   <section class="rounded-xl border border-gray-400/30 p-5 max-w-2xl bg-gray-500/5">
     <div v-if="joined && status === 'ready'" class="text-green-600 font-semibold">✓ 専用演習環境に接続済み</div>
-    <div v-else-if="loading || status === 'starting'" class="font-semibold">専用MicroVMとFlociを準備中…</div>
+    <div v-else-if="loading || status === 'starting'" class="font-semibold">MicroVMを準備中…</div>
     <form v-else @submit.prevent="join">
       <button type="submit" :disabled="loading" class="join-button rounded px-4 py-2 disabled:opacity-60">MicroVM起動</button>
     </form>
