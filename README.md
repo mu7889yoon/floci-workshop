@@ -38,6 +38,18 @@ AWS Emulator support is evolving quickly. Its fidelity varies by service and API
 - `ap-northeast-1` enabled for Lambda MicroVMs and sufficient MicroVM concurrency/TPS quota.
 - Permission to create the Terraform resources and `iam:PassRole` for the MicroVM image build role.
 
+## Local slide editing
+
+The repository pins Node.js 24.19.0 in `.node-version`. The preview script selects that version from `nodenv` when available, installs the pinned Slidev dependencies on first use, then starts the local development server:
+
+```bash
+./scripts/dev-slides.sh
+```
+
+Open <http://127.0.0.1:3030>. Slidev refreshes the preview when files under `slides/` are saved. Press `Ctrl+C` in the terminal to stop it. These edits stay local until the site is deployed.
+
+For manual setup, run `npm ci` in `slides/` with Node.js 24 or newer, then run `npm run dev` from that directory. Slidev's default mode listens locally; `--remote` is not needed for this workflow.
+
 ## Deploy
 
 ### 1. Bootstrap the MicroVM image build bucket and role
